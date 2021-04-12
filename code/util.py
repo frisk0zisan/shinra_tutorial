@@ -44,7 +44,7 @@ def decode_output(labels, infos):
             if is_chunk_end(label[idx-1], label[idx]):
                 assert len(chunks) > 0
                 _, attribute = split_tag(label[idx])
-                chunks[-1]["text_offset"]["end"] = {"line_id": info['line_id'], "offset": info['text_offset'][idx-2][1]}
+                chunks[-1]["text_offset"]["end"] = {"line_id": info['line_id'], "offset": info['text_offset'][idx-1][1]}
             if is_chunk_start(label[idx-1], label[idx]):
                 _, attribute = split_tag(label[idx])
                 chunks.append({"page_id": info['page_id'], "attribute": attribute,
