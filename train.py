@@ -105,7 +105,10 @@ def predict(model, dataset):
             mask = input_x > 0
             output = model(input_x, attention_mask=mask)
 
-            scores, idxs = torch.max(output[0], dim=-1)
+            output = output[0][:,1:,:]
+            mask = mask[:, 1:]
+
+            scores, idxs = torch.max(output, dim=-1)
 
             labels = [idxs[i][mask[i]].tolist() for i in range(idxs.size(0))]
             labels = [[dataset.dataset.id2label[l] for l in label] for label in labels]
