@@ -1,4 +1,6 @@
 import argparse
+import json
+import pathlib
 
 from tqdm import tqdm
 import torch
@@ -27,7 +29,7 @@ def parse_arguments():
     return args
 
 
-def train(model, dataset, lr=5e-5, batch_size=16, epoch=10, is_valid=False):
+def train(model, dataset, input_path, lr=5e-5, batch_size=16, epoch=10, is_valid=False):
     if is_valid is True:
         n_samples = len(dataset)
         train_size = int(len(dataset) * 0.8)
@@ -64,59 +66,67 @@ def train(model, dataset, lr=5e-5, batch_size=16, epoch=10, is_valid=False):
             all_loss += loss.item()
 
         losses.append(all_loss / len(train_dataloader))
-    
     if is_valid is True:
-        ans_labels = []
-        ans_infos = []
-        for tokens, labels, infos in val_dataloader:
-            labels = [[val_dataset.dataset.id2label[l] for l in label] for label in labels]
-            ans_labels.extend(labels)
-            ans_infos.extend(infos)
-        
+        ans_labels, ans_infos = get_val_answer(input_path, val_dataset)
         val_preds, val_infos  = predict(model, val_dataset)
-        f = open('val_preds.txt', 'w')
-        for x in val_preds:
-            f.write(str(x) + "\n")
-        f.close()
-
-        f = open('val_infos.txt', 'w')
-        for x in val_infos:
-            f.write(str(x) + "\n")
-        f.close()
-        
+        answer = decode_output(ans_labels, ans_infos, is_valid_ans=True)
         result = decode_output(val_preds, val_infos)
-        answer = decode_output(ans_labels, ans_infos)
         get_score(answer, result, error_path = "error", score_path = "score")
+        #print_valid_score(accuracy, scores, path = "./valid_score/valid:103.json")
 
     return losses
 
-def predict(model, dataset):
-    with torch.no_grad():
-        dataloader = DataLoader(dataset, batch_size=16, collate_fn=my_collate_fn)
+def get_val_answer(path, val_dataset):
+    val_dataloader = DataLoader(val_dataset, batch_size=16, collate_fn=my_collate_fn)
+    ans_labels = []
+    ans_infos = []
+    path = pathlib.Path(path)
+    category = str(path.stem)
+    fin = path / (category + "_dist.json")
+    for tokens, labels, infos in val_dataloader:
+        labels = [[val_dataset.dataset.id2label[l] for l in label[1:]] for label in labels]
+        for info in infos:
+            with open(fin, "r") as f:
+                for line in f:
+                    line = line.rstrip()
+                    if not line:
+                        continue
+                    line = json.loads(line)
+                    if line['page_id'] == info['page_id']:
+                        info['ENE'] = line['ENE']
+        ans_labels.extend(labels)
+        ans_infos.extend(infos)
+    #fans = open('ans_infos.txt', 'w')
+    #for x in ans_infos:
+    #    fans.write(str(x) + "\n")
+    #fans.close()
+    return ans_labels, ans_labels
 
+def predict(model, val_dataset):
+    with torch.no_grad():
+        val_dataloader = DataLoader(dataset, batch_size=16, collate_fn=my_collate_fn)
         losses = []
         preds = []
-        test_infos = []
+        val_infos = []
         print("--- valid ---")
-        for tokens, _, infos in tqdm(dataloader):
+        for tokens, _, infos in tqdm(val_dataloader):
             input_x = pad_sequence([torch.tensor(token)
                                     for token in tokens], batch_first=True, padding_value=0).to(device)
 
             mask = input_x > 0
             output = model(input_x, attention_mask=mask)
-
             output = output[0][:,1:,:]
             mask = mask[:, 1:]
 
             scores, idxs = torch.max(output, dim=-1)
 
             labels = [idxs[i][mask[i]].tolist() for i in range(idxs.size(0))]
-            labels = [[dataset.dataset.id2label[l] for l in label] for label in labels]
+            labels = [[val_dataset.dataset.id2label[l] for l in label] for label in labels]
             preds.extend(labels)
 
-            test_infos.extend(infos)
+            val_infos.extend(infos)
 
-    return preds, test_infos
+    return preds, val_infos
 
 if __name__ == "__main__":
     # load argument
@@ -132,7 +142,7 @@ if __name__ == "__main__":
     model = BertForTokenClassification.from_pretrained("cl-tohoku/bert-base-japanese-whole-word-masking", num_labels=len(dataset.label_vocab)).to(device)
 
     # train model
-    losses = train(model, dataset, lr=args.lr, batch_size=args.batch_size, epoch=args.epoch, is_valid=args.valid)
+    losses = train(model, dataset, args.input_path, lr=args.lr, batch_size=args.batch_size, epoch=args.epoch, is_valid=args.valid)
     
     # save model
     torch.save(model.state_dict(), args.model_path)
