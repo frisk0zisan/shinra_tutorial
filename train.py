@@ -72,7 +72,6 @@ def train(model, dataset, input_path, lr=5e-5, batch_size=16, epoch=10, is_valid
         answer = decode_output(ans_labels, ans_infos, is_valid_ans=True)
         result = decode_output(val_preds, val_infos)
         get_score(answer, result, error_path = "error", score_path = "score")
-        #print_valid_score(accuracy, scores, path = "./valid_score/valid:103.json")
 
     return losses
 
@@ -83,7 +82,8 @@ def get_val_answer(path, val_dataset):
     path = pathlib.Path(path)
     category = str(path.stem)
     fin = path / (category + "_dist.json")
-    for tokens, labels, infos in val_dataloader:
+    print("--- ENE information is being added to the validation data ---")
+    for tokens, labels, infos in tqdm(val_dataloader):
         labels = [[val_dataset.dataset.id2label[l] for l in label[1:]] for label in labels]
         for info in infos:
             with open(fin, "r") as f:
@@ -94,17 +94,14 @@ def get_val_answer(path, val_dataset):
                     line = json.loads(line)
                     if line['page_id'] == info['page_id']:
                         info['ENE'] = line['ENE']
+                        break
         ans_labels.extend(labels)
         ans_infos.extend(infos)
-    #fans = open('ans_infos.txt', 'w')
-    #for x in ans_infos:
-    #    fans.write(str(x) + "\n")
-    #fans.close()
-    return ans_labels, ans_labels
+    return ans_labels, ans_infos
 
 def predict(model, val_dataset):
     with torch.no_grad():
-        val_dataloader = DataLoader(dataset, batch_size=16, collate_fn=my_collate_fn)
+        val_dataloader = DataLoader(val_dataset, batch_size=16, collate_fn=my_collate_fn)
         losses = []
         preds = []
         val_infos = []
