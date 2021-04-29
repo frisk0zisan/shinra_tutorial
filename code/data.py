@@ -2,8 +2,9 @@ from pathlib import Path
 from torch.utils.data import Dataset
 
 class ShinraDataset(Dataset):
-    def __init__(self, data_dir, tokenizer, is_train=True):
+    def __init__(self, data_dir, tokenizer, is_train=True, is_valid=False):
         self.is_train = is_train
+        self.is_valid = is_valid
         self.base_dir = Path(data_dir)
         self.tokenizer = tokenizer
         self._read(self.base_dir)
@@ -37,9 +38,13 @@ class ShinraDataset(Dataset):
             line_id = sents[1]
 
             iobs = [s.split('\t') for s in sents[2:]]
-            tokens.append([int(l[0]) for l in iobs])
+            token = [int(l[0]) for l in iobs]
+            tokens.append(token)
             labels.append([l[3] for l in iobs])
-            infos.append({"page_id": page_id, "line_id": line_id, "text_offset": [[l[1], l[2]] for l in iobs]})
+            if self.is_valid is True:
+                infos.append({"page_id": page_id, "line_id": line_id, "text_offset": [[l[1], l[2]] for l in iobs], "text": ''.join([self.vocab[t] for t in token]) })
+            else :
+                infos.append({"page_id": page_id, "line_id": line_id, "text_offset": [[l[1], l[2]] for l in iobs]})
 
         return tokens, labels, infos
 
