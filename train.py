@@ -1,6 +1,7 @@
 import argparse
 import json
 import pathlib
+import os
 
 from tqdm import tqdm
 import torch
@@ -67,6 +68,7 @@ def train(model, dataset, input_path, lr=5e-5, batch_size=16, epoch=10, is_valid
             loss.backward()
             optimizer.step()
             all_loss += loss.item()
+            del loss
 
         losses.append(all_loss / len(train_dataloader))
 
@@ -76,6 +78,10 @@ def train(model, dataset, input_path, lr=5e-5, batch_size=16, epoch=10, is_valid
         answer = decode_output(ans_labels, ans_infos, is_text=True, is_ene=True)
         result = decode_output(val_preds, val_infos, is_text=True, is_title=True)
         category = str(input_path.stem)
+        if not os.path.exists("score/"):
+            os.mkdir("score/")
+        if not os.path.exists("error/"):
+            os.mkdir("error/")
         get_score(answer, result, plain_path = plain_path, error_path = "error/" + category, score_path = "score/" + category)
     return losses
 
