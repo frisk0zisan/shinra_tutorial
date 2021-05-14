@@ -2,9 +2,8 @@ from pathlib import Path
 from torch.utils.data import Dataset
 
 class ShinraDataset(Dataset):
-    def __init__(self, data_dir, tokenizer, is_train=True, is_valid=False):
+    def __init__(self, data_dir, tokenizer, is_train=True):
         self.is_train = is_train
-        self.is_valid = is_valid
         self.base_dir = Path(data_dir)
         self.tokenizer = tokenizer
         self._read(self.base_dir)
@@ -38,14 +37,9 @@ class ShinraDataset(Dataset):
             line_id = sents[1]
 
             iobs = [s.split('\t') for s in sents[2:]]
-            token = [int(l[0]) for l in iobs]
-            tokens.append(token)
+            tokens.append([int(l[0]) for l in iobs])
             labels.append([l[3] for l in iobs])
-            if self.is_valid is True:
-                infos.append({"page_id": page_id, "line_id": line_id, "text_offset": [[l[1], l[2]] for l in iobs], "text": ''.join([self.vocab[t] for t in token]) })
-            else :
-                infos.append({"page_id": page_id, "line_id": line_id, "text_offset": [[l[1], l[2]] for l in iobs]})
-
+            infos.append({"page_id": page_id, "line_id": line_id, "text_offset": [[l[1], l[2]] for l in iobs], "text":''})
         return tokens, labels, infos
 
     def _load_label_vocab(self, path):
@@ -85,4 +79,3 @@ class ShinraDataset(Dataset):
 def my_collate_fn(batch):
     tokens, labels, infos = list(zip(*batch))
     return tokens, labels, infos
-

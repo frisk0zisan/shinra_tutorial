@@ -11,7 +11,7 @@ from torch.nn.utils.rnn import pad_sequence
 from transformers import BertForTokenClassification, BertJapaneseTokenizer
 
 from code.data import ShinraDataset, my_collate_fn
-from code.util import decode_output, add_title_to_infos, add_ENE_to_infos
+from code.util import decode_output, add_title_and_text_to_infos, add_ENE_to_infos
 from shinra_jp_scorer import get_score
 
 device = "cuda" if torch.cuda.is_available else "cpu"
@@ -75,8 +75,9 @@ def train(model, dataset, input_path, lr=5e-5, batch_size=16, epoch=10, is_valid
     if is_valid is True:
         ans_labels, ans_infos = get_val_answer(input_path, val_dataset, batch_size)
         val_preds, val_infos  = predict_val(input_path, model, val_dataset, batch_size)
-        answer = decode_output(ans_labels, ans_infos, is_text=True, is_ene=True)
+        answer = decode_output(ans_labels, ans_infos,  is_ene=True)
         result = decode_output(val_preds, val_infos, is_text=True, is_title=True)
+        
         category = str(input_path.stem)
         if not os.path.exists("score/"):
             os.mkdir("score/")
@@ -106,9 +107,9 @@ def predict_val(path, model, val_dataset, batch_size):
         preds = []
         val_infos = []
         category = str(path.stem)
-        fin = path / (category + "_dist.json")
+        dist_json_path = path / (category + "_dist.json")
         print("--- valid ---")
-        for tokens, _, infos in tqdm(val_dataloader):
+        for tokens, ans_labels, infos in tqdm(val_dataloader):
             input_x = pad_sequence([torch.tensor(token)
                                     for token in tokens], batch_first=True, padding_value=0).to(device)
 
@@ -120,8 +121,9 @@ def predict_val(path, model, val_dataset, batch_size):
             scores, idxs = torch.max(output, dim=-1)
 
             labels = [idxs[i][mask[i]].tolist() for i in range(idxs.size(0))]
-            labels = [[val_dataset.dataset.id2label[l] for l in label] for label in labels]
-            infos = add_title_to_infos(infos, fin)
+            labels = [[val_dataset.dataset.id2label[l] for l in label[1:]] for label in labels]
+            ans_labels = [[val_dataset.dataset.id2label[l] for l in ans_label[1:]] for ans_label in ans_labels]
+            infos = add_title_and_text_to_infos(dist_json_path, infos, ans_labels)
             preds.extend(labels)
             val_infos.extend(infos)
 
@@ -135,7 +137,7 @@ if __name__ == "__main__":
     tokenizer = BertJapaneseTokenizer.from_pretrained('cl-tohoku/bert-base-japanese-whole-word-masking')
 
     # load dataset
-    dataset = ShinraDataset(args.input_path, tokenizer,  is_valid=args.valid)
+    dataset = ShinraDataset(args.input_path, tokenizer)
 
     # load model
     model = BertForTokenClassification.from_pretrained("cl-tohoku/bert-base-japanese-whole-word-masking", num_labels=len(dataset.label_vocab)).to(device)
