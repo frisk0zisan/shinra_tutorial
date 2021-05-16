@@ -87,7 +87,6 @@ def add_title_and_text_to_infos(dist_json_path, infos, labels):
                     info['title'] = line['title']
                     if int(line['text_offset']['start']['line_id']) == int(info['line_id']) and int(line['text_offset']['start']['offset']) == int(offset_start) and int(line['text_offset']['end']['offset']) == int(offset_end):
                         info['text'] = line['text_offset']['text']
-                        print(info['text'])
     return infos
 
 def add_ENE_to_infos(infos, path):
