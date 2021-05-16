@@ -70,6 +70,7 @@ def print_shinra_format(chunks, path):
 def add_title_and_text_to_infos(dist_json_path, infos, labels):
     for label, info in zip(labels, infos):
         label = ["O"] + label + ["O"]
+        offset_start = offset_end = None
         for idx in range(1, len(label)):
             if is_chunk_end(label[idx-1], label[idx]):
                 offset_end = int(info['text_offset'][idx-2][1])
@@ -85,7 +86,7 @@ def add_title_and_text_to_infos(dist_json_path, infos, labels):
 
                 if line['page_id'] == info['page_id']:
                     info['title'] = line['title']
-                    if int(line['text_offset']['start']['line_id']) == int(info['line_id']) and int(line['text_offset']['start']['offset']) == int(offset_start) and int(line['text_offset']['end']['offset']) == int(offset_end):
+                    if int(line['text_offset']['start']['line_id']) == int(info['line_id']) and int(line['text_offset']['start']['offset']) == offset_start and int(line['text_offset']['end']['offset']) == offset_end:
                         info['text'] = line['text_offset']['text']
     return infos
 
