@@ -39,8 +39,7 @@ class ShinraDataset(Dataset):
             iobs = [s.split('\t') for s in sents[2:]]
             tokens.append([int(l[0]) for l in iobs])
             labels.append([l[3] for l in iobs])
-            infos.append({"page_id": page_id, "line_id": line_id, "text_offset": [[l[1], l[2]] for l in iobs]})
-
+            infos.append({"page_id": page_id, "line_id": line_id, "text_offset": [[l[1], l[2]] for l in iobs], "text":''})
         return tokens, labels, infos
 
     def _load_label_vocab(self, path):
@@ -80,4 +79,3 @@ class ShinraDataset(Dataset):
 def my_collate_fn(batch):
     tokens, labels, infos = list(zip(*batch))
     return tokens, labels, infos
-
